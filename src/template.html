@@ -250,12 +250,15 @@ function renderResult(){
   const hiddenCount=top.length-list.length;
 
   // 필터
-  const used=new Set();list.forEach(x=>x.c.p.forEach(p=>used.add(p)));
+  // DB에 한 편이라도 있는 플랫폼은 항상 보여 주고, 지금 추천 결과 안의 편수를 함께 표시
+  const inDB=new Set();DB.forEach(m=>m.p.forEach(p=>inDB.add(p)));
+  const cnt=id=>list.filter(x=>x.c.p.includes(id)).length;
   const fb=el("div","filterbar");fb.append(el("span","label","상영관 필터  "));
-  [["all","전체"],["mine","내 구독에서 바로"],...PLATFORMS.filter(([id])=>used.has(id))].forEach(([id,name])=>{
+  [["all","전체"],["mine","내 구독에서 바로"],...PLATFORMS.filter(([id])=>inDB.has(id))].forEach(([id,name])=>{
     const l=el("label","chip");const c=document.createElement("input");c.type="radio";c.name="flt";c.id="flt-"+id;c.checked=filter===id;
     c.onchange=()=>{filter=id;renderResult();};
-    l.append(c,el("span",null,name));fb.append(l);
+    const n=id==="all"||id==="mine"?null:cnt(id);
+    l.append(c,el("span",null,n==null?name:name+" "+n));fb.append(l);
   });
   r.append(fb);
   const pass=c=>filter==="all"||(filter==="mine"?c.p.some(p=>mySubs.has(p)):c.p.includes(filter));
