@@ -1,0 +1,14 @@
+name: check
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm run validate
+      - run: npm test
+      - run: npm run build
+      - name: index.html이 최신인지 확인
+        run: git diff --exit-code index.html

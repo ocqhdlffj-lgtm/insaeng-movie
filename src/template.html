@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>인생영화 상영표</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 극장 편성표 — 매표 창구(입력) → 취향 해설 → 상영 카드 → 플랫폼 편성표. 모든 계산은 이 파일 안에서 처리 */
+:root{
+  --bg:#eef0f3; --paper:#fbfcfd; --ink:#16202e; --muted:#5d6878; --line:#d3d8e0;
+  --accent:#1d55c4; --accent-ink:#ffffff; --seat:#c8361f; --soft:#e3e8f1;
+  --sub:#1f7a4d;
+  --f-display:"Black Han Sans","IBM Plex Sans KR",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f141c; --paper:#161d28; --ink:#e7ebf1; --muted:#97a2b3; --line:#2a3443;
+  --accent:#6f9cff; --accent-ink:#0b1220; --seat:#ff7a5f; --soft:#1e2734;
+  --sub:#5fd39a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141c; --paper:#161d28; --ink:#e7ebf1; --muted:#97a2b3; --line:#2a3443;
+  --accent:#6f9cff; --accent-ink:#0b1220; --seat:#ff7a5f; --soft:#1e2734;
+  --sub:#5fd39a; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
+[hidden]{display:none!important}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:28px 64px;display:grid;gap:28px}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:var(--accent)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.mast{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:3px solid var(--ink);padding-bottom:14px}
+.mast h1{font-family:var(--f-display);font-weight:400;font-size:clamp(34px,7vw,58px);line-height:1;letter-spacing:-.01em}
+.mast h1 span{color:var(--seat)}
+.mast p{margin:0;color:var(--muted);max-width:42ch}
+.label{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+.booth{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:20px;display:grid;gap:20px}
+.row{display:grid;gap:8px;min-width:0}
+.entry{display:flex;gap:8px;flex-wrap:wrap}
+.entry input{flex:1 1 220px;min-width:0;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.btn{border:0;border-radius:8px;padding:12px 18px;cursor:pointer;font-weight:700}
+.btn.ghost{background:var(--soft);color:var(--ink)}
+.btn.small{padding:6px 12px;font-size:13px}
+.tickets{display:flex;flex-wrap:wrap;gap:8px;min-height:38px}
+.ticket{display:inline-flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;border:1.5px dashed var(--seat);border-radius:6px;font-weight:700}
+.ticket button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px 6px}
+.hint{color:var(--muted);font-size:14px;align-self:center}
+.suggest{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{position:relative}
+.chip input{position:absolute;opacity:0;pointer-events:none}
+.chip span{display:inline-block;padding:6px 12px;border:1px solid var(--line);border-radius:999px;font-size:13.5px;cursor:pointer;background:var(--bg)}
+.chip input:checked + span{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.opts select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+details.more summary{cursor:pointer;font-weight:700;padding:4px 0}
+details.more .chips{margin-top:10px}
+.status{color:var(--muted);font-size:14px;min-height:1.5em}
+.status.err{color:var(--seat)}
+
+.banner{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:13.5px;color:var(--muted)}
+.taste{display:grid;gap:8px}
+.taste h2{font-family:var(--f-display);font-weight:400;font-size:clamp(24px,4vw,32px)}
+.taste p{margin:0;max-width:68ch}
+.filterbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:10px;display:grid;grid-template-rows:auto 1fr auto;overflow:hidden;min-width:0}
+.card-head{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;padding:16px 16px 10px;border-bottom:1px dashed var(--line)}
+.seatno{font-family:var(--f-mono);font-size:12px;color:var(--seat);border:1.5px solid var(--seat);border-radius:4px;padding:2px 6px;line-height:1.4}
+.card h3{font-size:18px;line-height:1.35}
+.card .orig{font-size:13px;color:var(--muted)}
+.match{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.match b{display:block;font-size:22px;line-height:1;color:var(--accent)}
+.match small{font-size:10.5px;color:var(--muted);letter-spacing:.08em}
+.card-body{padding:12px 16px;display:grid;gap:10px;align-content:start}
+.card-body p{margin:0;font-size:14.5px}
+.mini{display:flex;flex-wrap:wrap;gap:4px}
+.mini span{font-size:11.5px;color:var(--muted);background:var(--soft);padding:1px 8px;border-radius:4px}
+.mini span.rev{background:transparent;border:1px solid var(--line)}
+.mini span.rev.hit{border-color:var(--accent);color:var(--accent)}
+.plats{display:flex;flex-wrap:wrap;gap:6px}
+.plat{font-size:12.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--sub);color:var(--sub);font-weight:500}
+.plat.mine{background:var(--sub);color:var(--paper)}
+.plat.none{border-color:var(--muted);color:var(--muted)}
+.card-foot{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:10px 16px 14px;font-size:13px;border-top:1px solid var(--soft)}
+.card-foot .seen{margin-left:auto;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;text-decoration:underline}
+
+.board{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px}
+.board h2{font-size:17px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:13.5px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--paper);white-space:normal;min-width:150px}
+thead th{font-family:var(--f-mono);font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.04em}
+thead th.mine{color:var(--sub)}
+.dot{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--sub)}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:12.5px;color:var(--muted);align-items:center}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.note{font-size:13px;color:var(--muted);max-width:80ch;margin:0}
+@media (max-width:480px){.booth{padding:16px}.card-head{grid-template-columns:auto 1fr}.match{grid-column:1/-1;text-align:left;display:flex;gap:8px;align-items:baseline}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <h1>인생영화 <span>상영표</span></h1>
+    <p>좋아하는 영화를 넣으면 비슷한 결의 영화와 볼 수 있는 국내 OTT를 바로 보여줍니다. 인터넷 연결이나 API 없이 이 파일만으로 작동합니다.</p>
+  </header>
+
+  <section class="booth" aria-label="인생영화 입력">
+    <div class="row">
+      <label class="label" for="movieInput">01 · 인생영화 (최대 5편, 수록작 <span id="count">0</span>편 중에서 검색)</label>
+      <form class="entry" id="addForm">
+        <input id="movieInput" type="text" list="movieList" placeholder="제목을 입력하세요. 예: 이터널 선샤인" autocomplete="off">
+        <button class="btn ghost" type="submit">추가</button>
+      </form>
+      <datalist id="movieList"></datalist>
+      <div class="suggest" id="suggest" hidden></div>
+      <div class="tickets" id="tickets"></div>
+    </div>
+
+    <div class="opts">
+      <div class="row">
+        <span class="label">02 · 내가 구독 중인 OTT</span>
+        <div class="chips" id="mySubs"></div>
+      </div>
+      <div class="row">
+        <label class="label" for="mood">03 · 오늘의 분위기</label>
+        <select id="mood">
+          <option value="">상관없음</option>
+          <option value="잔잔">잔잔하고 여운이 긴</option>
+          <option value="반전">머리 쓰는 반전</option>
+          <option value="울컥">울고 싶은</option>
+          <option value="유쾌">가볍게 웃고 싶은</option>
+          <option value="긴장">심장 뛰는 긴장감</option>
+          <option value="따뜻">마음 따뜻해지는</option>
+          <option value="몽환">몽환적이고 감각적인</option>
+          <option value="묵직">묵직하게 생각할 거리가 있는</option>
+        </select>
+        <span class="label" style="margin-top:6px">피하고 싶은 것</span>
+        <div class="chips" id="avoids"></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <span class="label">04 · 후기에서 이런 말이 많은 영화 (선택)</span>
+      <div class="chips" id="reviewPick"></div>
+      <p class="hint" style="margin:0">영화마다 후기에서 자주 나오는 표현을 요약해 두었습니다. 실제 리뷰를 수집한 것이 아니라 제작자의 요약이에요.</p>
+    </div>
+
+    <details class="more">
+      <summary>영화 대신 취향 키워드로 고르기 (선택)</summary>
+      <p class="hint" style="margin:6px 0 0">수록작에 없는 인생영화가 있다면 그 영화의 어떤 점이 좋았는지 골라 주세요.</p>
+      <div class="chips" id="tagPick"></div>
+    </details>
+    <div class="status" id="status" role="status"></div>
+  </section>
+
+  <section id="result" class="row" style="gap:20px" aria-live="polite"></section>
+</div>
+
+<script>
+/* ---------- 데이터 ----------
+ DB는 data/movies.json에서 tools/build.js가 인라인한다(수정은 JSON에서). 직접 이 파일을 고치지 말 것.
+ 영화: {t:제목, o:원제, y:연도, d:감독, r:상영시간(분), g:장르, k:키워드, m:분위기, v:후기 태그, p:OTT}
+ OTT 코드: nf 넷플릭스 · tv 티빙 · wv 웨이브 · cp 쿠팡플레이 · dp 디즈니+ · wc 왓챠 · at Apple TV · pv 프라임비디오
+ OTT와 후기 태그는 제작자가 아는 범위의 추정·요약이며 실시간 정보나 실제 리뷰 수집 결과가 아닙니다. */
+const PLATFORMS=[["nf","넷플릭스"],["tv","티빙"],["wv","웨이브"],["cp","쿠팡플레이"],["dp","디즈니+"],["wc","왓챠"],["at","Apple TV"],["pv","프라임비디오"]];
+const PNAME=Object.fromEntries(PLATFORMS);
+const DB=/*__MOVIES__*/[];
+
+/*__ENGINE__*/
+const {search,recommend:recommendFor,byTitle,norm}=createEngine(DB);
+
+/* 키워드(취향 태그) 목록: DB에서 자동 수집 */
+const TAGCOUNT={}; DB.forEach(m=>m.k.forEach(k=>TAGCOUNT[k]=(TAGCOUNT[k]||0)+1));
+const TAGS=Object.keys(TAGCOUNT).filter(k=>k!=="잔인").sort((a,b)=>TAGCOUNT[b]-TAGCOUNT[a]);
+const AVOIDS=[["공포","공포 장르"],["잔인","잔인한 장면"],["long","150분 넘는 영화"],["애니","애니메이션"],["rv-불친절","불친절하다는 후기"],["rv-불편함","불편하다는 후기"],["rv-호불호","호불호 갈린다는 후기"]];
+/* 후기 취향: 후기에서 자주 언급되는 점 중 '찾고 싶은' 것 */
+const REVIEWPICKS=[["여운","여운이 긴"],["눈물주의","눈물 쏟는"],["몰입","몰입감 있는"],["반전충격","반전이 충격적인"],["유쾌함","유쾌한"],["잔잔함","잔잔한"],["영상미","영상미 좋은"],["음악","음악이 좋은"],["연기","연기가 뛰어난"],["재관람","또 보게 되는"],["입문추천","누구에게나 추천받는"]];
+
+/* ---------- 상태 ---------- */
+let movies=["이터널 선샤인"];   // 선택한 인생영화 제목(DB의 t)
+let pickedTags=new Set();
+let reviewPrefs=new Set();
+let avoid=new Set();
+let mySubs=new Set(["nf","tv"]);
+let seen=new Set();
+let filter="all";
+const $=s=>document.querySelector(s);
+const el=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;};
+const load=(k,def)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?def:v;}catch(e){return def;}};
+const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
+mySubs=new Set(load("insaeng2-subs",[...mySubs]));
+seen=new Set(load("insaeng2-seen",[]));
+const recommend=()=>recommendFor({movies,pickedTags,mood:$("#mood").value,avoid,reviewPrefs});
+
+/* ---------- 렌더 ---------- */
+function setStatus(t,err){const s=$("#status");s.textContent=t||"";s.className="status"+(err?" err":"");}
+
+function renderTickets(){
+  const box=$("#tickets");box.replaceChildren();
+  if(!movies.length) box.append(el("span","hint","아직 입력한 영화가 없습니다. 제목을 넣고 추가를 누르거나 아래에서 취향 키워드를 골라 보세요."));
+  movies.forEach((t,i)=>{
+    const tk=el("span","ticket");tk.append(el("span",null,t));
+    const x=el("button",null,"×");x.type="button";x.setAttribute("aria-label",t+" 삭제");
+    x.onclick=()=>{movies.splice(i,1);update();};
+    tk.append(x);box.append(tk);
+  });
+}
+function renderChips(boxId,items,set,onChange,prefix){
+  const box=$(boxId);box.replaceChildren();
+  items.forEach(([id,name])=>{
+    const l=el("label","chip");const c=document.createElement("input");c.type="checkbox";c.id=prefix+id;c.checked=set.has(id);
+    c.onchange=()=>{c.checked?set.add(id):set.delete(id);onChange();};
+    l.append(c,el("span",null,name));box.append(l);
+  });
+}
+
+function linkRow(c,onSeen){
+  const f=el("div","card-foot");
+  const a1=el("a",null,"JustWatch에서 확인");a1.href="https://www.justwatch.com/kr/%EA%B2%80%EC%83%89?q="+encodeURIComponent(c.t);a1.target="_blank";a1.rel="noopener";
+  const a2=el("a",null,"네이버 검색");a2.href="https://search.naver.com/search.naver?query="+encodeURIComponent("영화 "+c.t+" "+c.y);a2.target="_blank";a2.rel="noopener";
+  const b=el("button","seen","이미 봤어요");b.type="button";b.onclick=onSeen;
+  f.append(a1,a2,b);return f;
+}
+
+function renderResult(){
+  const r=$("#result");r.replaceChildren();
+  const {top,P,inputs}=recommend();
+  if(!movies.length&&!pickedTags.size&&!reviewPrefs.size&&!$("#mood").value){
+    r.append(el("p","note","인생영화를 한 편 이상 넣거나 취향 키워드를 골라 주세요."));return;
+  }
+  const keys=Object.keys(P).filter(k=>k.startsWith("k:")).sort((a,b)=>P[b]-P[a]).slice(0,4).map(k=>k.slice(2));
+  const t=el("div","taste");t.append(el("span","label","취향 해설"));
+  t.append(el("h2",null,keys.length?keys.slice(0,3).join(" · ")+"에 끌리는 취향":"취향을 찾는 중"));
+  const moods=Object.keys(P).filter(k=>k.startsWith("m:")).sort((a,b)=>P[b]-P[a]).slice(0,2).map(k=>k.slice(2));
+  t.append(el("p",null,"입력한 영화들에서 가장 자주 겹친 키워드는 "+keys.join(", ")+"이고, 분위기는 "+(moods.join("·")||"다양")+" 쪽에 가깝습니다. 아래는 이 키워드와 가장 비슷한 조합을 가진 작품 순서입니다."));
+  r.append(t);
+
+  const list=top.filter(x=>!seen.has(x.c.t));
+  const hiddenCount=top.length-list.length;
+
+  // 필터
+  const used=new Set();list.forEach(x=>x.c.p.forEach(p=>used.add(p)));
+  const fb=el("div","filterbar");fb.append(el("span","label","상영관 필터  "));
+  [["all","전체"],["mine","내 구독에서 바로"],...PLATFORMS.filter(([id])=>used.has(id))].forEach(([id,name])=>{
+    const l=el("label","chip");const c=document.createElement("input");c.type="radio";c.name="flt";c.id="flt-"+id;c.checked=filter===id;
+    c.onchange=()=>{filter=id;renderResult();};
+    l.append(c,el("span",null,name));fb.append(l);
+  });
+  r.append(fb);
+  const pass=c=>filter==="all"||(filter==="mine"?c.p.some(p=>mySubs.has(p)):c.p.includes(filter));
+  const shown=list.filter(x=>pass(x.c));
+
+  const cards=el("div","cards");
+  shown.forEach((x,i)=>{
+    const c=x.c;const card=el("article","card");
+    const h=el("div","card-head");
+    h.append(el("span","seatno","A"+String(i+1).padStart(2,"0")));
+    const tt=el("div");tt.style.minWidth="0";tt.append(el("h3",null,c.t));
+    tt.append(el("div","orig",[c.o,c.y,c.d,c.r+"분"].join(" · ")));
+    h.append(tt);
+    const m=el("div","match");m.append(el("b",null,x.pct+"%"),el("small",null,"취향 일치"));h.append(m);
+    const body=el("div","card-body");body.append(el("p",null,x.why));
+    const mini=el("div","mini");[...c.g.slice(0,2),...c.k.filter(k=>k!=="잔인").slice(0,3)].forEach(k=>mini.append(el("span",null,k)));body.append(mini);
+    const rvbox=el("div","mini");c.v.slice(0,4).forEach(k=>rvbox.append(el("span","rev"+((P["v:"+k]||0)>0?" hit":""),"후기 · "+k)));if(c.v.length)body.append(rvbox);
+    const pl=el("div","plats");
+    if(!c.p.length) pl.append(el("span","plat none","구독 정보 없음 · 대여·구매 확인"));
+    c.p.forEach(p=>{const mine=mySubs.has(p);pl.append(el("span","plat"+(mine?" mine":""),PNAME[p]+" 추정"+(mine?" ✓":"")));});
+    body.append(pl);
+    card.append(h,body,linkRow(c,()=>{seen.add(c.t);save("insaeng2-seen",[...seen]);renderResult();}));
+    cards.append(card);
+  });
+  r.append(cards);
+  if(!shown.length) r.append(el("p","note","이 필터에 해당하는 영화가 없습니다. 다른 상영관을 골라 보세요."));
+  if(seen.size){
+    const rb=el("div","banner");rb.append(el("span",null,"‘이미 봤어요’로 숨긴 영화 "+seen.size+"편"));
+    const b=el("button","btn ghost small","되돌리기");b.type="button";b.onclick=()=>{seen.clear();save("insaeng2-seen",[]);renderResult();};rb.append(b);r.append(rb);
+  }
+
+  // 편성표
+  const board=el("div","board");board.append(el("h2",null,"플랫폼 편성표"));
+  const lg=el("div","legend");const s1=el("span");s1.append(el("i","dot"),document.createTextNode("구독으로 시청 가능(추정)"));lg.append(s1,el("span",null,"초록 머리글 = 내 구독"));board.append(lg);
+  const sc=el("div","scroll");const tb=document.createElement("table");
+  const thead=document.createElement("thead");const hr=document.createElement("tr");hr.append(el("th",null,"영화"));
+  PLATFORMS.forEach(([id,name])=>{const th=el("th",mySubs.has(id)?"mine":null,name);th.scope="col";hr.append(th);});
+  thead.append(hr);tb.append(thead);
+  const tbody=document.createElement("tbody");
+  list.forEach(x=>{
+    const tr=document.createElement("tr");tr.append(el("td",null,x.c.t));
+    PLATFORMS.forEach(([id,name])=>{const td=document.createElement("td");if(x.c.p.includes(id)){const d=el("i","dot");d.title=name;d.setAttribute("aria-label",name+" 구독");td.append(d);}tr.append(td);});
+    tbody.append(tr);
+  });
+  tb.append(tbody);sc.append(tb);board.append(sc);
+  board.append(el("p","note","OTT 표시는 제작자가 아는 범위의 추정이며 실시간 정보가 아닙니다. 대여·구매 가능 여부는 담지 않았습니다. 볼 영화를 정했다면 카드의 JustWatch 링크로 지금 제공 중인지 확인하세요."));
+  r.append(board);
+}
+
+function update(){renderTickets();renderResult();}
+
+/* ---------- 입력 처리 ---------- */
+const sg=$("#suggest");
+function showSuggest(list,msg){
+  sg.replaceChildren();sg.hidden=false;sg.append(el("span","hint",msg));
+  list.slice(0,6).forEach(m=>{const b=el("button","btn ghost small",m.t+" ("+m.y+")");b.type="button";b.onclick=()=>{addMovie(m.t);};sg.append(b);});
+}
+function addMovie(t){
+  sg.hidden=true;
+  if(movies.includes(t)){setStatus("이미 추가한 영화입니다.",true);return;}
+  if(movies.length>=5){setStatus("인생영화는 최대 5편까지 넣을 수 있습니다.",true);return;}
+  movies.push(t);$("#movieInput").value="";setStatus("");update();
+}
+$("#addForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const q=$("#movieInput").value.trim();if(!q)return;
+  setStatus("");
+  const hits=search(q);
+  if(hits.length===1||(hits.length>1&&norm(hits[0].t)===norm(q))){addMovie(hits[0].t);}
+  else if(hits.length>1){showSuggest(hits,"어느 영화인가요?");}
+  else{sg.hidden=true;setStatus("수록작에 없는 영화입니다. 아래 ‘취향 키워드로 고르기’에서 그 영화의 어떤 점이 좋았는지 골라 보세요.",true);$("details.more").open=true;}
+});
+
+/* ---------- 초기화 ---------- */
+$("#count").textContent=DB.length;
+const dl=$("#movieList");DB.forEach(m=>{const o=document.createElement("option");o.value=m.t;o.label=m.o;dl.append(o);});
+renderChips("#mySubs",PLATFORMS.filter(([id])=>!["at","pv"].includes(id)),mySubs,()=>{save("insaeng2-subs",[...mySubs]);renderResult();},"sub-");
+renderChips("#avoids",AVOIDS,avoid,renderResult,"av-");
+renderChips("#reviewPick",REVIEWPICKS,reviewPrefs,renderResult,"rv-");
+renderChips("#tagPick",TAGS.map(t=>[t,t]),pickedTags,renderResult,"tg-");
+$("#mood").addEventListener("change",renderResult);
+update();
+</script>
+</body>
+</html>

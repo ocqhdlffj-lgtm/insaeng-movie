@@ -1,0 +1,11 @@
+{
+  "name": "insaeng-movie-schedule",
+  "version": "2.0.0",
+  "private": true,
+  "description": "인생영화 상영표 — 인생영화로 비슷한 영화와 볼 수 있는 국내 OTT를 찾는 정적 웹앱",
+  "scripts": {
+    "validate": "node tools/validate.js",
+    "build": "node tools/build.js",
+    "test": "node --test test/engine.test.js"
+  }
+}
