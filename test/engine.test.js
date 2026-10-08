@@ -73,3 +73,15 @@ test("추천 이유의 조사(와/과)", () => {
   const r3 = E.recommend({ movies: ["그녀"] });
   assert.ok(r3.top[0].why.startsWith("「그녀」와 "));
 });
+
+test("명대사: 일부 작품에 있고, 런타임 데이터로 전달된다", () => {
+  const withQuote = DB.filter(m => m.q);
+  assert.ok(withQuote.length >= 50);
+  assert.equal(E.byTitle("곡성").q, "뭣이 중헌디.");
+  assert.equal(E.byTitle("이터널 선샤인").q, "");
+});
+
+test("명대사 검증: 너무 긴 값은 거부", () => {
+  const bad = loadMovies().slice(0, 1).map(m => ({ ...m, quote: "가".repeat(100) }));
+  assert.ok(validate(bad).some(e => e.includes("quote")));
+});

@@ -23,6 +23,7 @@ function validate(movies) {
     if (m.reviews?.length < 2 || m.reviews?.length > 5) err("후기 태그는 2~5개");
     m.reviews?.forEach(x => REVIEW_TAGS.includes(x) || err(`알 수 없는 후기 태그: ${x}`));
     m.ott?.forEach(x => OTT[x] || err(`알 수 없는 OTT 코드: ${x}`));
+    if (m.quote !== undefined && (typeof m.quote !== "string" || m.quote.length < 2 || m.quote.length > 90)) err("quote는 2~90자 문자열");
     if (seen.has(m.title)) err("제목 중복");
     seen.add(m.title);
   });

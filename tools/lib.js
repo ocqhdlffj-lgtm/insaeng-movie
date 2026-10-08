@@ -12,6 +12,6 @@ function loadMovies() {
 }
 /* 긴 키 → 앱 내부 짧은 키 */
 function toRuntime(m) {
-  return { t: m.title, o: m.orig, y: m.year, d: m.director, r: m.runtime, g: m.genres, k: m.keywords, m: m.moods, v: m.reviews, p: m.ott };
+  return { t: m.title, o: m.orig, y: m.year, d: m.director, r: m.runtime, g: m.genres, k: m.keywords, m: m.moods, v: m.reviews, p: m.ott, q: m.quote || "" };
 }
 module.exports = { ROOT, OTT, MOODS, REVIEW_TAGS, loadMovies, toRuntime };
