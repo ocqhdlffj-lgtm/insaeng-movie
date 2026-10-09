@@ -85,3 +85,12 @@ test("명대사 검증: 너무 긴 값은 거부", () => {
   const bad = loadMovies().slice(0, 1).map(m => ({ ...m, quote: "가".repeat(100) }));
   assert.ok(validate(bad).some(e => e.includes("quote")));
 });
+
+test("줄거리: 모든 영화가 4줄을 가진다", () => {
+  assert.ok(DB.every(m => Array.isArray(m.s) && m.s.length === 4));
+});
+
+test("줄거리 검증: 4줄이 아니면 거부", () => {
+  const bad = loadMovies().slice(0, 1).map(m => ({ ...m, synopsis: ["한 줄뿐인 설명입니다 하나둘셋."] }));
+  assert.ok(validate(bad).some(e => e.includes("synopsis")));
+});
