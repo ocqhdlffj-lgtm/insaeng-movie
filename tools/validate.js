@@ -1,7 +1,7 @@
 /* data/movies.json 검증: 스키마, 어휘, 중복. 문제가 있으면 종료 코드 1 */
-const { OTT, MOODS, REVIEW_TAGS, loadMovies } = require("./lib");
+const { OTT, MOODS, REVIEW_TAGS, loadMovies, loadPosters } = require("./lib");
 
-function validate(movies) {
+function validate(movies, posters = {}) {
   const errors = [];
   const seen = new Set();
   const token = s => typeof s === "string" && s.length > 0 && !/\s/.test(s);
@@ -29,12 +29,17 @@ function validate(movies) {
     if (seen.has(m.title)) err("제목 중복");
     seen.add(m.title);
   });
+  const titles = new Set(movies.map(m => m.title));
+  for (const [t, p] of Object.entries(posters)) {
+    if (!titles.has(t)) errors.push("posters.json: 없는 영화 " + t);
+    else if (!/^\/[A-Za-z0-9_-]+\.jpg$/.test(p)) errors.push("posters.json: 경로 형식 오류 " + t + " " + p);
+  }
   return errors;
 }
 
 if (require.main === module) {
   const movies = loadMovies();
-  const errors = validate(movies);
+  const errors = validate(movies, loadPosters());
   if (errors.length) { console.error(errors.join("\n")); console.error(`\n오류 ${errors.length}건`); process.exit(1); }
   console.log(`OK: ${movies.length}편 검증 통과`);
 }

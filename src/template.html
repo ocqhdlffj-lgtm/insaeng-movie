@@ -82,6 +82,9 @@ details.more .chips{margin-top:10px}
 .match small{font-size:10.5px;color:var(--muted);letter-spacing:.08em}
 .card-body{padding:12px 16px;display:grid;gap:10px;align-content:start}
 .card-body p{margin:0;font-size:14.5px}
+.pbox{display:flex;gap:12px;align-items:flex-start}
+.pbox>div{min-width:0}
+img.poster{width:72px;aspect-ratio:2/3;object-fit:cover;border-radius:4px;border:1px solid var(--line);background:var(--soft);flex:none}
 .mini{display:flex;flex-wrap:wrap;gap:4px}
 .mini span{font-size:11.5px;color:var(--muted);background:var(--soft);padding:1px 8px;border-radius:4px}
 details.syn summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--accent)}
@@ -234,7 +237,8 @@ function linkRow(c,onSeen){
   const a1=el("a",null,"JustWatch에서 확인");a1.href="https://www.justwatch.com/kr/%EA%B2%80%EC%83%89?q="+encodeURIComponent(c.t);a1.target="_blank";a1.rel="noopener";
   const a2=el("a",null,"네이버 검색");a2.href="https://search.naver.com/search.naver?query="+encodeURIComponent("영화 "+c.t+" "+c.y);a2.target="_blank";a2.rel="noopener";
   const b=el("button","seen","이미 봤어요");b.type="button";b.onclick=onSeen;
-  f.append(a1,a2,b);return f;
+  const a3=el("a",null,"포스터 보기");a3.href="https://search.naver.com/search.naver?where=image&query="+encodeURIComponent("영화 "+c.t+" "+c.y+" 포스터");a3.target="_blank";a3.rel="noopener";
+  f.append(a1,a2,a3,b);return f;
 }
 
 function renderResult(){
@@ -277,7 +281,10 @@ function renderResult(){
     tt.append(el("div","orig",[c.o,c.y,c.d,c.r+"분"].join(" · ")));
     h.append(tt);
     const m=el("div","match");m.append(el("b",null,x.pct+"%"),el("small",null,"취향 일치"));h.append(m);
-    const body=el("div","card-body");body.append(el("p",null,x.why));
+    const body=el("div","card-body");
+    const pbox=el("div","pbox");
+    if(c.i){const im=document.createElement("img");im.className="poster";im.loading="lazy";im.alt=c.t+" 포스터";im.referrerPolicy="no-referrer";im.src="https://image.tmdb.org/t/p/w185"+c.i;im.onerror=()=>im.remove();pbox.append(im);}
+    const why=el("div");why.append(el("p",null,x.why));pbox.append(why);body.append(pbox);
     const mini=el("div","mini");[...c.g.slice(0,2),...c.k.filter(k=>k!=="잔인").slice(0,3)].forEach(k=>mini.append(el("span",null,k)));body.append(mini);
     if(c.s&&c.s.length){const d=el("details","syn");d.append(el("summary",null,"줄거리 4줄"));const ol=el("ol");c.s.forEach(x=>ol.append(el("li",null,x)));d.append(ol);body.append(d);}
     if(c.q){const bq=el("blockquote","quote","“"+c.q+"”");body.append(bq);}
@@ -310,7 +317,7 @@ function renderResult(){
     tbody.append(tr);
   });
   tb.append(tbody);sc.append(tb);board.append(sc);
-  board.append(el("p","note","OTT 표시는 제작자가 아는 범위의 추정이며 실시간 정보가 아닙니다. 대여·구매 가능 여부는 담지 않았습니다. 볼 영화를 정했다면 카드의 JustWatch 링크로 지금 제공 중인지 확인하세요. 줄거리는 제작자가 결말 없이 요약한 것이라 사실과 다를 수 있고, 명대사는 일부 작품만 실었으며 한국어 자막·더빙에 따라 표현이 다를 수 있습니다."));
+  board.append(el("p","note","OTT 표시는 제작자가 아는 범위의 추정이며 실시간 정보가 아닙니다. 대여·구매 가능 여부는 담지 않았습니다. 볼 영화를 정했다면 카드의 JustWatch 링크로 지금 제공 중인지 확인하세요. "+(DB.some(m=>m.i)?"포스터는 TMDB에서 불러옵니다(This product uses the TMDB API but is not endorsed or certified by TMDB). ":"")+"줄거리는 제작자가 결말 없이 요약한 것이라 사실과 다를 수 있고, 명대사는 일부 작품만 실었으며 한국어 자막·더빙에 따라 표현이 다를 수 있습니다."));
   r.append(board);
 }
 

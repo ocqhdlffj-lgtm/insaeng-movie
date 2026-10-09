@@ -14,4 +14,9 @@ function loadMovies() {
 function toRuntime(m) {
   return { t: m.title, o: m.orig, y: m.year, d: m.director, r: m.runtime, g: m.genres, k: m.keywords, m: m.moods, v: m.reviews, p: m.ott, q: m.quote || "", s: m.synopsis };
 }
-module.exports = { ROOT, OTT, MOODS, REVIEW_TAGS, loadMovies, toRuntime };
+/* data/posters.json({제목: "/경로.jpg"})은 tools/fetch-posters.js 가 만든다. 없으면 빈 객체 */
+function loadPosters() {
+  const f = path.join(ROOT, "data/posters.json");
+  return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {};
+}
+module.exports = { loadPosters, ROOT, OTT, MOODS, REVIEW_TAGS, loadMovies, toRuntime };
