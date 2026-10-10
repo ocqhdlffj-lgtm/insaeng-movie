@@ -14,6 +14,11 @@ const FILE = path.join(ROOT, "data/posters.json");
 const refresh = process.argv.includes("--refresh");
 const posters = !refresh && fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, "utf8")) : {};
 
+/* 자동 매칭이 불확실했지만 후보를 사람이 확인해 승인한 영화(연도가 정확히 같을 때만 후보를 받아들임) */
+const APPROVED = new Set(["판의 미로", "내 머릿속의 지우개", "스타워즈: 새로운 희망", "스타워즈: 제국의 역습", "반딧불이의 묘", "원령공주", "불한당"]);
+/* TMDB에서 다른 이름으로 올라 있는 영화: 이 원제로 검색하고 대조한다 */
+const ORIG_OVERRIDE = { "라이프 이즈 뷰티풀": "La vita è bella" };
+
 async function search(query) {
   const url = "https://api.themoviedb.org/3/search/movie?" + new URLSearchParams({ api_key: KEY, query, language: "ko-KR", include_adult: "false" });
   const res = await fetch(url);
@@ -29,8 +34,10 @@ async function search(query) {
   let done = 0;
   for (const m of movies) {
     if (posters[m.title]) continue;
-    let r = pickPoster(m, await search(m.orig));
-    if (r.status !== "ok") { const r2 = pickPoster(m, await search(m.title)); if (r2.status === "ok" || (r2.status === "review" && r.status === "none")) r = r2; }
+    const mm = ORIG_OVERRIDE[m.title] ? { ...m, orig: ORIG_OVERRIDE[m.title] } : m;
+    let r = pickPoster(mm, await search(mm.orig));
+    if (r.status !== "ok") { const r2 = pickPoster(mm, await search(m.title)); if (r2.status === "ok" || (r2.status === "review" && r.status === "none")) r = r2; }
+    if (r.status === "review" && APPROVED.has(m.title) && r.year === m.year) r = { ...r, status: "ok" };
     if (r.status === "ok") { posters[m.title] = r.poster; done++; }
     else if (r.status === "review") review.push(`${m.title} (${m.year}) → 후보: ${r.title} / ${r.original} (${r.year}) ${r.poster}`);
     else none.push(m.title);
