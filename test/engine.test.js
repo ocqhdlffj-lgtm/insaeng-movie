@@ -114,3 +114,26 @@ test("legacy 옵션은 v1과 같은 결과(기준선 재현)", () => {
   assert.equal(L.recommend({ movies: ["이터널 선샤인"] }).top.length, 12);
   assert.equal(L.options.legacy, true);
 });
+
+test("대표·세부 장르: 모든 영화에 있고 런타임 데이터로 전달된다", () => {
+  assert.ok(DB.every(m => m.pg && Array.isArray(m.sg) && m.sg.length >= 1 && m.sg.length <= 2));
+  assert.equal(E.byTitle("인터스텔라").pg, "SF");
+  assert.ok(E.byTitle("인터스텔라").sg.includes("우주"));
+});
+
+test("SF 영화를 넣으면 SF 영화가 상위에 오고 한국 가족 드라마가 섞이지 않는다", () => {
+  const r = E.recommend({ movies: ["인터스텔라"] });
+  assert.ok(r.top.slice(0, 6).filter(x => x.c.pg === "SF").length >= 4);
+  assert.ok(!r.top.slice(0, 6).some(x => x.c.t === "국제시장"));
+});
+
+test("세부 장르를 직접 고르면 해당 장르 영화가 올라오고 이유에 드러난다", () => {
+  const r = E.recommend({ pickedSubs: new Set(["시간여행"]) });
+  assert.ok(r.top.filter(x => x.c.sg.includes("시간여행")).length >= 6);
+  assert.ok(r.top.some(x => x.why.includes("고른 세부 장르")));
+});
+
+test("추천 이유: 입력 영화와 세부 장르가 같으면 알려 준다", () => {
+  const r = E.recommend({ movies: ["인터스텔라"] });
+  assert.ok(r.top.some(x => x.why.includes("세부 장르(")));
+});

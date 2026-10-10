@@ -6,13 +6,14 @@
   alpha   입력이 여러 편일 때 (최대 유사도 비중). 나머지는 평균 유사도
   reserve 입력이 여러 편일 때 각 입력 영화마다 보장하는 자리 수
   mmr     다양성 재순위 강도(0이면 끔). 이미 뽑힌 영화와 비슷할수록 감점
+  wp, ws  대표 장르(p:)·세부 장르(s:) 토큰 가중(0이면 끔)
   dirPen  다양성 재순위에서 같은 감독이 이미 뽑혀 있을 때의 추가 감점
   gamma   영화 입력과 취향 선택(키워드·분위기·후기)을 섞을 때 취향 선택의 비중
   legacy  true면 v1(벡터 합산 코사인)과 동일하게 동작 — 비교 기준선용 */
 function createEngine(DB, options = {}){
-  const LEGACY={idf:0,popular:false,alpha:0,reserve:0,mmr:0,gamma:0,legacy:true};
-  const O=options.legacy?{...LEGACY,...options}:{idf:.3,popular:true,alpha:.7,reserve:2,mmr:.2,dirPen:0,gamma:.5,legacy:false,...options};
-  const W={keyword:1, genre:.45, mood:.6, review:.5, pickTag:1.6, pickMood:2.2, pickReview:1.6, sameDirector:.08, popBoost:.06};
+  const LEGACY={idf:0,popular:false,alpha:0,reserve:0,mmr:0,gamma:0,wp:0,ws:0,legacy:true};
+  const O=options.legacy?{...LEGACY,...options}:{idf:.3,popular:true,alpha:.7,reserve:2,mmr:.2,dirPen:0,gamma:.5,wp:1,ws:1,legacy:false,...options};
+  const W={keyword:1, genre:.45, mood:.6, review:.5, primary:O.wp, sub:O.ws, pickTag:1.6, pickMood:2.2, pickReview:1.6, sameDirector:.08, popBoost:.06};
   const POP="입문추천";
 
   const norm=s=>s.toLowerCase().replace(/[\s:·\-!?.,'’"“”()]/g,"");
@@ -29,7 +30,7 @@ function createEngine(DB, options = {}){
 
   /* ---- 토큰 판별력(IDF) ---- */
   const skipPop=O.popular&&!O.legacy;
-  const tokens=m=>[...m.k.map(x=>"k:"+x),...m.g.map(x=>"g:"+x),...m.m.map(x=>"m:"+x),...m.v.filter(x=>!(skipPop&&x===POP)).map(x=>"v:"+x)];
+  const tokens=m=>[...(O.wp>0&&m.pg?["p:"+m.pg]:[]),...(O.ws>0&&m.sg?m.sg.map(x=>"s:"+x):[]),...m.k.map(x=>"k:"+x),...m.g.map(x=>"g:"+x),...m.m.map(x=>"m:"+x),...m.v.filter(x=>!(skipPop&&x===POP)).map(x=>"v:"+x)];
   const df={}; DB.forEach(m=>tokens(m).forEach(t=>df[t]=(df[t]||0)+1));
   const idfRaw=t=>Math.log((DB.length+1)/((df[t]||0)+1))+1;
   const allTok=Object.keys(df);
@@ -40,6 +41,8 @@ function createEngine(DB, options = {}){
   const base={k:W.keyword,g:W.genre,m:W.mood,v:W.review};
   function vec(m){
     const v={};
+    if(O.wp>0&&m.pg) v["p:"+m.pg]=W.primary*idfF("p:"+m.pg);
+    if(O.ws>0&&m.sg) m.sg.forEach(x=>v["s:"+x]=W.sub*idfF("s:"+x));
     m.k.forEach(k=>v["k:"+k]=W.keyword*idfF("k:"+k));
     m.g.forEach(g=>v["g:"+g]=W.genre*idfF("g:"+g));
     m.m.forEach(x=>v["m:"+x]=W.mood*idfF("m:"+x));
@@ -63,14 +66,15 @@ function createEngine(DB, options = {}){
     return false;
   }
 
-  /* state: {movies:[제목], pickedTags:Set, mood:"", avoid:Set, reviewPrefs:Set} */
+  /* state: {movies:[제목], pickedTags:Set, pickedSubs:Set(세부 장르), mood:"", avoid:Set, reviewPrefs:Set} */
   function recommend(state){
-    const {movies=[],pickedTags=new Set(),mood="",avoid=new Set(),reviewPrefs=new Set()}=state;
+    const {movies=[],pickedTags=new Set(),pickedSubs=new Set(),mood="",avoid=new Set(),reviewPrefs=new Set()}=state;
     const inputs=movies.map(byTitle).filter(Boolean);
 
     // 취향 선택(키워드·분위기·후기)만으로 만든 벡터
     const pref={};
     pickedTags.forEach(t=>pref["k:"+t]=(pref["k:"+t]||0)+W.pickTag*idfF("k:"+t));
+    if(O.ws>0) pickedSubs.forEach(t=>pref["s:"+t]=(pref["s:"+t]||0)+W.pickTag*idfF("s:"+t));
     reviewPrefs.forEach(t=>{ if(skipPop&&t===POP) return; pref["v:"+t]=(pref["v:"+t]||0)+W.pickReview*idfF("v:"+t); });
     if(mood){ pref["m:"+mood]=(pref["m:"+mood]||0)+W.pickMood; if(mood==="반전") pref["k:반전"]=(pref["k:반전"]||0)+W.pickMood; }
     const hasPref=Object.keys(pref).length>0;
@@ -138,6 +142,8 @@ function createEngine(DB, options = {}){
       const parts=[];
       if(best&&bs>0){ const sh=best.k.filter(k=>x.c.k.includes(k)).slice(0,3); parts.push("「"+best.t+"」"+wa(best.t)+" "+(sh.length?sh.join("·")+" 키워드가 겹칩니다.":"결이 닮았습니다.")); if(best.d===x.c.d) parts.push("같은 감독("+best.d+")의 작품입니다."); }
       else if(shared.length) parts.push("고른 취향 키워드("+shared.join("·")+")와 맞습니다.");
+      if(best&&best.sg&&x.c.sg){const ss=best.sg.filter(s=>x.c.sg.includes(s));if(ss.length) parts.push("세부 장르("+ss.join("·")+")가 같습니다.");}
+      else if(x.c.sg){const ps=x.c.sg.filter(s=>pickedSubs.has(s));if(ps.length) parts.push("고른 세부 장르("+ps.join("·")+")에 해당합니다.");}
       if(mood&&x.c.m.includes(mood)) parts.push("원하는 분위기("+mood+")에 해당합니다.");
       const rv=x.c.v.filter(t=>(P["v:"+t]||0)>0).sort((a,b)=>P["v:"+b]-P["v:"+a]).slice(0,2);
       if(rv.length) parts.push("후기에서 자주 언급되는 점: "+rv.join("·")+".");

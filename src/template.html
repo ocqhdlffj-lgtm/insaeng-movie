@@ -166,6 +166,9 @@ thead th.mine{color:var(--sub)}
     <details class="more">
       <summary>영화 대신 취향 키워드로 고르기 (선택)</summary>
       <p class="hint" style="margin:6px 0 0">수록작에 없는 인생영화가 있다면 그 영화의 어떤 점이 좋았는지 골라 주세요.</p>
+      <span class="label" style="margin-top:8px">세부 장르</span>
+      <div class="chips" id="subPick"></div>
+      <span class="label" style="margin-top:8px">키워드</span>
       <div class="chips" id="tagPick"></div>
     </details>
     <div class="status" id="status" role="status"></div>
@@ -189,6 +192,8 @@ const {search,recommend:recommendFor,byTitle,norm}=createEngine(DB);
 
 /* 키워드(취향 태그) 목록: DB에서 자동 수집 */
 const TAGCOUNT={}; DB.forEach(m=>m.k.forEach(k=>TAGCOUNT[k]=(TAGCOUNT[k]||0)+1));
+const SUBCOUNT={}; DB.forEach(m=>(m.sg||[]).forEach(s=>SUBCOUNT[s]=(SUBCOUNT[s]||0)+1));
+const SUBS=Object.keys(SUBCOUNT).sort((a,b)=>SUBCOUNT[b]-SUBCOUNT[a]);
 const TAGS=Object.keys(TAGCOUNT).filter(k=>k!=="잔인").sort((a,b)=>TAGCOUNT[b]-TAGCOUNT[a]);
 const AVOIDS=[["공포","공포 장르"],["잔인","잔인한 장면"],["long","150분 넘는 영화"],["애니","애니메이션"],["rv-불친절","불친절하다는 후기"],["rv-불편함","불편하다는 후기"],["rv-호불호","호불호 갈린다는 후기"]];
 /* 후기 취향: 후기에서 자주 언급되는 점 중 '찾고 싶은' 것 */
@@ -197,6 +202,7 @@ const REVIEWPICKS=[["여운","여운이 긴"],["눈물주의","눈물 쏟는"],[
 /* ---------- 상태 ---------- */
 let movies=["이터널 선샤인"];   // 선택한 인생영화 제목(DB의 t)
 let pickedTags=new Set();
+let pickedSubs=new Set();
 let reviewPrefs=new Set();
 let avoid=new Set();
 let mySubs=new Set(["nf","tv"]);
@@ -208,7 +214,7 @@ const load=(k,def)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==n
 const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
 mySubs=new Set(load("insaeng2-subs",[...mySubs]));
 seen=new Set(load("insaeng2-seen",[]));
-const recommend=()=>recommendFor({movies,pickedTags,mood:$("#mood").value,avoid,reviewPrefs});
+const recommend=()=>recommendFor({movies,pickedTags,pickedSubs,mood:$("#mood").value,avoid,reviewPrefs});
 
 /* ---------- 렌더 ---------- */
 function setStatus(t,err){const s=$("#status");s.textContent=t||"";s.className="status"+(err?" err":"");}
@@ -244,7 +250,7 @@ function linkRow(c,onSeen){
 function renderResult(){
   const r=$("#result");r.replaceChildren();
   const {top,P,inputs}=recommend();
-  if(!movies.length&&!pickedTags.size&&!reviewPrefs.size&&!$("#mood").value){
+  if(!movies.length&&!pickedTags.size&&!pickedSubs.size&&!reviewPrefs.size&&!$("#mood").value){
     r.append(el("p","note","인생영화를 한 편 이상 넣거나 취향 키워드를 골라 주세요."));return;
   }
   const keys=Object.keys(P).filter(k=>k.startsWith("k:")).sort((a,b)=>P[b]-P[a]).slice(0,4).map(k=>k.slice(2));
@@ -285,7 +291,7 @@ function renderResult(){
     const pbox=el("div","pbox");
     if(c.i){const im=document.createElement("img");im.className="poster";im.loading="lazy";im.alt=c.t+" 포스터";im.referrerPolicy="no-referrer";im.src="https://image.tmdb.org/t/p/w185"+c.i;im.onerror=()=>im.remove();pbox.append(im);}
     const why=el("div");why.append(el("p",null,x.why));pbox.append(why);body.append(pbox);
-    const mini=el("div","mini");[...c.g.slice(0,2),...c.k.filter(k=>k!=="잔인").slice(0,3)].forEach(k=>mini.append(el("span",null,k)));body.append(mini);
+    const mini=el("div","mini");[...(c.pg?[c.pg,...(c.sg||[])]:c.g.slice(0,2)),...c.k.filter(k=>k!=="잔인").slice(0,2)].forEach(k=>mini.append(el("span",null,k)));body.append(mini);
     if(c.s&&c.s.length){const d=el("details","syn");d.append(el("summary",null,"줄거리 4줄"));const ol=el("ol");c.s.forEach(x=>ol.append(el("li",null,x)));d.append(ol);body.append(d);}
     if(c.q){const bq=el("blockquote","quote","“"+c.q+"”");body.append(bq);}
     const rvbox=el("div","mini");c.v.slice(0,4).forEach(k=>rvbox.append(el("span","rev"+((P["v:"+k]||0)>0?" hit":""),"후기 · "+k)));if(c.v.length)body.append(rvbox);
@@ -351,6 +357,7 @@ const dl=$("#movieList");DB.forEach(m=>{const o=document.createElement("option")
 renderChips("#mySubs",PLATFORMS.filter(([id])=>!["at","pv"].includes(id)),mySubs,()=>{save("insaeng2-subs",[...mySubs]);renderResult();},"sub-");
 renderChips("#avoids",AVOIDS,avoid,renderResult,"av-");
 renderChips("#reviewPick",REVIEWPICKS,reviewPrefs,renderResult,"rv-");
+renderChips("#subPick",SUBS.map(s=>[s,s]),pickedSubs,renderResult,"sg-");
 renderChips("#tagPick",TAGS.map(t=>[t,t]),pickedTags,renderResult,"tg-");
 $("#mood").addEventListener("change",renderResult);
 update();

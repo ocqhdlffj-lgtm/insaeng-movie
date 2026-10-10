@@ -1,5 +1,5 @@
 /* data/movies.json 검증: 스키마, 어휘, 중복. 문제가 있으면 종료 코드 1 */
-const { OTT, MOODS, REVIEW_TAGS, loadMovies, loadPosters } = require("./lib");
+const { OTT, MOODS, REVIEW_TAGS, PRIMARY_GENRES, SUBGENRES, loadMovies, loadPosters } = require("./lib");
 
 function validate(movies, posters = {}) {
   const errors = [];
@@ -25,6 +25,9 @@ function validate(movies, posters = {}) {
     m.ott?.forEach(x => OTT[x] || err(`알 수 없는 OTT 코드: ${x}`));
     if (!Array.isArray(m.synopsis) || m.synopsis.length !== 4) err("synopsis는 4줄 배열이어야 함");
     else m.synopsis.forEach((s, j) => { if (typeof s !== "string" || s.length < 8 || s.length > 110) err("synopsis " + (j + 1) + "번째 줄 길이 비정상"); });
+    if (!PRIMARY_GENRES.includes(m.primary)) err("primary(대표 장르)가 없거나 목록에 없음: " + m.primary);
+    if (!Array.isArray(m.subgenres) || m.subgenres.length < 1 || m.subgenres.length > 2) err("subgenres(세부 장르)는 1~2개");
+    else m.subgenres.forEach(x => SUBGENRES.includes(x) || err("알 수 없는 세부 장르: " + x));
     if (m.quote !== undefined && (typeof m.quote !== "string" || m.quote.length < 2 || m.quote.length > 90)) err("quote는 2~90자 문자열");
     if (seen.has(m.title)) err("제목 중복");
     seen.add(m.title);
