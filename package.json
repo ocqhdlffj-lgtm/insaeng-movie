@@ -6,7 +6,8 @@
   "scripts": {
     "validate": "node tools/validate.js",
     "build": "node tools/build.js",
-    "test": "node --test test/engine.test.js test/tmdb-match.test.js",
-    "posters": "node tools/fetch-posters.js"
+    "test": "node --test test/engine.test.js test/tmdb-match.test.js test/eval.test.js",
+    "posters": "node tools/fetch-posters.js",
+    "evaluate": "node tools/evaluate.js"
   }
 }

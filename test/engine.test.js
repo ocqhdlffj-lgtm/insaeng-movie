@@ -57,7 +57,7 @@ test("후기 취향을 고르면 해당 후기 태그를 가진 영화가 더 �
 });
 
 test("후기 태그가 추천 이유에 드러난다", () => {
-  const r = E.recommend({ movies: [], reviewPrefs: new Set(["입문추천"]), pickedTags: new Set(["가족"]) });
+  const r = E.recommend({ movies: [], reviewPrefs: new Set(["눈물주의"]), pickedTags: new Set(["가족"]) });
   assert.ok(r.top.some(x => x.why.includes("후기에서 자주 언급되는 점")));
 });
 
@@ -93,4 +93,24 @@ test("줄거리: 모든 영화가 4줄을 가진다", () => {
 test("줄거리 검증: 4줄이 아니면 거부", () => {
   const bad = loadMovies().slice(0, 1).map(m => ({ ...m, synopsis: ["한 줄뿐인 설명입니다 하나둘셋."] }));
   assert.ok(validate(bad).some(e => e.includes("synopsis")));
+});
+
+test("입문추천은 유사도가 아니라 가점: 영화 추천 점수에는 섞이지 않고, 선택하면 입문작이 더 올라온다", () => {
+  const plain = E.recommend({ movies: ["이터널 선샤인"] });
+  const picked = E.recommend({ movies: ["이터널 선샤인"], reviewPrefs: new Set(["입문추천"]) });
+  const n = r => r.top.filter(x => x.c.v.includes("입문추천")).length;
+  assert.ok(n(picked) >= n(plain));
+  assert.ok(picked.top.some(x => x.why.includes("입문작으로 추천받는")));
+});
+
+test("여러 편 입력: 서로 다른 취향 영화마다 최소 한 편씩 결과에 나온다", () => {
+  const names = E.recommend({ movies: ["센과 치히로의 행방불명", "올드보이"] }).top.map(x => x.c.t);
+  assert.ok(["하울의 움직이는 성", "원령공주", "이웃집 토토로", "마녀 배달부 키키"].some(t => names.includes(t)));
+  assert.ok(["친절한 금자씨", "아가씨", "달콤한 인생", "아저씨"].some(t => names.includes(t)));
+});
+
+test("legacy 옵션은 v1과 같은 결과(기준선 재현)", () => {
+  const L = createEngine(DB, { legacy: true });
+  assert.equal(L.recommend({ movies: ["이터널 선샤인"] }).top.length, 12);
+  assert.equal(L.options.legacy, true);
 });
