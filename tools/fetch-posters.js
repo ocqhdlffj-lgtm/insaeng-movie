@@ -15,7 +15,7 @@ const refresh = process.argv.includes("--refresh");
 const posters = !refresh && fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, "utf8")) : {};
 
 /* 자동 매칭이 불확실했지만 후보를 사람이 확인해 승인한 영화(연도가 정확히 같을 때만 후보를 받아들임) */
-const APPROVED = new Set(["판의 미로", "내 머릿속의 지우개", "스타워즈: 새로운 희망", "스타워즈: 제국의 역습", "반딧불이의 묘", "원령공주", "불한당"]);
+const APPROVED = new Set(["판의 미로", "내 머리 속의 지우개", "스타워즈: 새로운 희망", "스타워즈: 제국의 역습", "반딧불이의 묘", "원령공주", "불한당"]);
 /* TMDB에서 다른 이름으로 올라 있는 영화: 이 원제로 검색하고 대조한다 */
 const ORIG_OVERRIDE = { "라이프 이즈 뷰티풀": "La vita è bella" };
 

@@ -15,7 +15,7 @@ test("데이터 검증 통과", () => {
 
 test("search: 정확 → 접두 → 포함 순", () => {
   assert.deepEqual(E.search("대부").map(m => m.t), ["대부"]);
-  assert.deepEqual(E.search("godfather").map(m => m.t), ["대부"]);
+  assert.equal(E.search("godfather").map(m => m.t)[0], "대부"); // 대부 2도 함께 걸리지만 첫 결과는 대부
   assert.deepEqual(E.search("  이터널 선샤인 ").map(m => m.t), ["이터널 선샤인"]);
   assert.ok(E.search("선샤인").length >= 1);   // 포함 검색
   assert.deepEqual(E.search("없는영화제목xyz"), []);

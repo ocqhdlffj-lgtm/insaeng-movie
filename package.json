@@ -8,6 +8,7 @@
     "build": "node tools/build.js",
     "test": "node --test test/engine.test.js test/tmdb-match.test.js test/eval.test.js",
     "posters": "node tools/fetch-posters.js",
-    "evaluate": "node tools/evaluate.js"
+    "evaluate": "node tools/evaluate.js",
+    "verify": "node tools/verify.js"
   }
 }
