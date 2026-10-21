@@ -3,3 +3,4 @@
 node_modules/
 .claude/
 verify-result.json
+verify-plot-result.json

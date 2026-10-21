@@ -13,6 +13,7 @@ const NOTES = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, "
 
 const UA = { "User-Agent": "insaeng-movie-verify/1.0 (https://github.com/ocqhdlffj-lgtm/insaeng-movie)", Accept: "application/sparql-results+json" };
 const esc = s => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+const TPL = /[{][{][ ]*영화[ ]*정보/; // 문서마다 {{영화정보 또는 {{영화 정보
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function sparql(q) {
@@ -83,7 +84,7 @@ async function koWiki(m) {
     const p = await wikiApi({ action: "query", prop: "revisions", rvprop: "content", rvslots: "main", titles: h.title });
     const page = Object.values(p.query.pages)[0];
     const txt = (page.revisions && page.revisions[0].slots.main["*"]) || "";
-    if (!txt.includes("{{영화정보")) continue;
+    if (!TPL.test(txt)) continue;
     const dirLine = (txt.match(/\|\s*감독\s*=\s*([^\n]+)/) || [])[1] || "";
     if (!sharesChunk(dirLine, m.director)) continue;
     const rt = (txt.match(/\|\s*(?:상영\s*시간|시간)\s*=\s*(\d+)\s*분/) || [])[1];
