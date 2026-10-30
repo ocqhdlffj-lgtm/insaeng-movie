@@ -35,7 +35,7 @@ function validate(movies, posters = {}) {
   const titles = new Set(movies.map(m => m.title));
   for (const [t, p] of Object.entries(posters)) {
     if (!titles.has(t)) errors.push("posters.json: 없는 영화 " + t);
-    else if (!/^\/[A-Za-z0-9_-]+\.jpg$/.test(p)) errors.push("posters.json: 경로 형식 오류 " + t + " " + p);
+    else if (!(/^\/[A-Za-z0-9_-]+\.jpg$/.test(p) || /^https:\/\/upload\.wikimedia\.org\/[^?\s]+$/.test(p))) errors.push("posters.json: 경로 형식 오류 " + t + " " + p);
   }
   return errors;
 }

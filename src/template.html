@@ -289,7 +289,7 @@ function renderResult(){
     const m=el("div","match");m.append(el("b",null,x.pct+"%"),el("small",null,"취향 일치"));h.append(m);
     const body=el("div","card-body");
     const pbox=el("div","pbox");
-    if(c.i){const im=document.createElement("img");im.className="poster";im.loading="lazy";im.alt=c.t+" 포스터";im.referrerPolicy="no-referrer";im.src="https://image.tmdb.org/t/p/w185"+c.i;im.onerror=()=>im.remove();pbox.append(im);}
+    if(c.i){const im=document.createElement("img");im.className="poster";im.loading="lazy";im.alt=c.t+" 포스터";im.referrerPolicy="no-referrer";im.src=c.i[0]==="/"?"https://image.tmdb.org/t/p/w185"+c.i:c.i;im.onerror=()=>im.remove();pbox.append(im);}
     const why=el("div");why.append(el("p",null,x.why));pbox.append(why);body.append(pbox);
     const mini=el("div","mini");[...(c.pg?[c.pg,...(c.sg||[])]:c.g.slice(0,2)),...c.k.filter(k=>k!=="잔인").slice(0,2)].forEach(k=>mini.append(el("span",null,k)));body.append(mini);
     if(c.s&&c.s.length){const d=el("details","syn");d.append(el("summary",null,"줄거리 4줄"));const ol=el("ol");c.s.forEach(x=>ol.append(el("li",null,x)));d.append(ol);body.append(d);}
